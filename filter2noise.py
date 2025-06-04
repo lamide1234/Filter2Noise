@@ -425,7 +425,7 @@ class SigmaPredictor(nn.Module):
         attention_scale (float): Scale factor for scaled dot-product attention.
     """
 
-    def __init__(self, patch_size=8):
+    def __init__(self, patch_size=8, stride=8):
         """
         Args:
             patch_size (int, optional): Patch size for non-overlapping patches. Defaults to 8.
@@ -434,6 +434,7 @@ class SigmaPredictor(nn.Module):
         super().__init__()
         self.patch_size = patch_size
         self.hidden_dim = 8
+        self.stride=stride
 
         self.query = nn.LazyLinear(self.hidden_dim)
         self.key = nn.LazyLinear(self.hidden_dim)
@@ -448,10 +449,22 @@ class SigmaPredictor(nn.Module):
         self.activation = BoundedSoftplus(threshold=6)
 
         self.attention_scale = self.hidden_dim ** -0.5
+        self.pos_embed = None  # Will initialize in forward based on patch shape
+        self.patch_proj = nn.LazyLinear(self.hidden_dim)
 
+    def extract_patches(self, x):
+            # your patch extraction logic
+            B, C, H, W = x.shape
+            patch_size = self.patch_size  # defined in __init__
+            stride = self.stride          # defined in __init__
+
+            unfolded = F.unfold(x, kernel_size=patch_size, stride=stride)
+            patches = unfolded.transpose(1, 2)
+            return patches
+    
     def _attention(self, q, k, v):
         """
-        Compute scaled dot-product attention.
+        Compute scaled dot-product attention with optional relative position encoding.
 
         Args:
             q (torch.Tensor): Query of shape [B, N, D].
@@ -461,9 +474,18 @@ class SigmaPredictor(nn.Module):
         Returns:
             torch.Tensor: Attention output of shape [B, N, D].
         """
+        B, N, D = q.shape
         scores = torch.bmm(q, k.transpose(1, 2)) * self.attention_scale
+
+        # Add relative positional bias (assume square patch layout)
+        grid_size = int(math.sqrt(N))
+        assert grid_size * grid_size == N, "Number of patches must be a perfect square"
+        rel_pos = self.get_2d_relative_positional_bias(grid_size, D, device=q.device)
+        scores = scores + rel_pos  # [B, N, N]
+
         attn_weights = F.softmax(scores, dim=-1)
         return torch.bmm(attn_weights, v)
+
 
     def forward(self, x):
         """
@@ -478,7 +500,20 @@ class SigmaPredictor(nn.Module):
         b, c, h, w = x.shape
         ps = self.patch_size
         assert h % ps == 0 and w % ps == 0, "Image dimensions must be divisible by patch_size"
+        
+        # Add absolute positional encoding
+        patches = self.extract_patches(x)
+        patches = self.patch_proj(patches)
+        n_patches = patches.size(1)
+        device = patches.device
 
+        if self.pos_embed is None or self.pos_embed.shape[1] != n_patches:
+            # Create positional embedding dynamically
+            self.pos_embed = nn.Parameter(torch.randn(1, n_patches, self.hidden_dim, device=device))
+
+        # Add to queries and keys
+        patches = patches + self.pos_embed  # [B, N, patch_dim]
+                
         # Extract non-overlapping patches
         patches = x.view(b, c, h // ps, ps, w // ps, ps)
         patches = patches.permute(0, 2, 4, 1, 3, 5).contiguous()
@@ -506,6 +541,29 @@ class SigmaPredictor(nn.Module):
         sigmas_resized = F.interpolate(sigmas, size=(h, w), mode='nearest').permute(0, 2, 3, 1)
         return sigmas_resized
 
+    def get_2d_relative_positional_bias(self, grid_size, dim, device):
+        """
+        Generate 2D relative positional bias for attention.
+        Args:
+            grid_size (int): Height/Width of patch grid (assumes square).
+            dim (int): Embedding dimension.
+            device (torch.device): Target device.
+
+        Returns:
+            torch.Tensor: Bias tensor of shape [1, N, N]
+        """
+        coords = torch.arange(grid_size, device=device)
+        coords = torch.stack(torch.meshgrid(coords, coords, indexing='ij'))  # [2, H, W]
+        coords = coords.flatten(1)  # [2, N]
+        rel_coords = coords[:, :, None] - coords[:, None, :]  # [2, N, N]
+        rel_coords = rel_coords.permute(1, 2, 0).contiguous()  # [N, N, 2]
+
+        # Normalize to [-1, 1]
+        rel_coords = rel_coords.float() / grid_size
+
+        # Project to scalar bias
+        bias = torch.tanh((rel_coords**2).sum(dim=-1))  # [N, N]
+        return bias.unsqueeze(0)  # [1, N, N]
 
 class AGBF(nn.Module):
     """
