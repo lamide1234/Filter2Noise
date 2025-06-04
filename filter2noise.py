@@ -511,8 +511,11 @@ class SigmaPredictor(nn.Module):
             # Create positional embedding dynamically
             self.pos_embed = nn.Parameter(torch.randn(1, n_patches, self.hidden_dim, device=device))
 
+
+
         # Add to queries and keys
         patches = patches + self.pos_embed  # [B, N, patch_dim]
+
                 
         # Extract non-overlapping patches
         patches = x.view(b, c, h // ps, ps, w // ps, ps)
@@ -529,7 +532,7 @@ class SigmaPredictor(nn.Module):
         q_sigma = self.sigma_query(feats)
         k_sigma = self.sigma_key(feats)
         v_sigma = self.sigma_value(feats)
-        sigmas_patch = self._attention(q_sigma, k_sigma, v_sigma)
+        sigmas_patch = feats + self._attention(q_sigma, k_sigma, v_sigma) # Residual connection
         sigmas_patch_norm = self.norm(sigmas_patch)
         sigmas_patch_proj = self.sigma_proj(sigmas_patch_norm)
         sigmas = self.activation(sigmas_patch_proj)  # [B, N, 3]
