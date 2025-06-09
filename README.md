@@ -4,7 +4,7 @@
 
 
 # Filter2Noise: Interpretable Self-Supervised Single Low-Dose CT Image Denoising
-> 📌 This is a forked repo. See [`experimental-updates`]() for my contributions.
+> 📌 This is a forked repo. See [`experimental-updates`](https://github.com/lamide1234/Filter2Noise/tree/experimental-version) for my contributions.
 
 <!-- Optional: Add a Table of Contents here if desired -->
 
