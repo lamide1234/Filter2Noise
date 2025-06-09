@@ -27,7 +27,7 @@ This branch contains my experimental updates on the original Filter2Noise model.
 
 ## 🔗 Notes
 
-This repository is a **fork** of the original Filter2Noise implementation. My experimental updates are available in this [`experimental-updates`](https://github.com/your-username/forked-repo-name/tree/experimental-updates) branch.
+This repository is a **fork** of the original Filter2Noise implementation. My experimental updates are available in this [`experimental-updates`](https://github.com/lamide1234/Filter2Noise/tree/experimental-version) branch.
 
 I performed the architectural adjustments to explore **efficiency–accuracy tradeoffs** in self-supervised denoising, especially for resource-constrained scenarios where inference speed is critical.
 
