@@ -119,31 +119,37 @@ def restore_image(tensor):
 
 def Downsampler(img):
     """
-    Downsample an image into two outputs using fixed 2x2 stride-2 convolutions optimized by a single convolution.
-
-    Two specific 2x2 filters are applied to create two separate downsampled images,
-    helping to retain different local structure information.
-
+    Downsample an image into two outputs using fixed 2x2 stride-2 convolutions.
+    Handles odd H/W by reflection padding to make them even.
+    
     Args:
         img (torch.Tensor): Input tensor of shape (B, C, H, W).
-
+    
     Returns:
         Tuple[torch.Tensor, torch.Tensor]: Two downsampled images with shape (B, C, H/2, W/2).
     """
+    # ✅ Step 1: Handle odd height/width
+    _, _, H, W = img.shape
+    pad_h = 1 if H % 2 != 0 else 0
+    pad_w = 1 if W % 2 != 0 else 0
+    if pad_h or pad_w:
+        img = F.pad(img, (0, pad_w, 0, pad_h), mode='reflect')
+
+    # ✅ Step 2: Original logic
     c = img.shape[1]
     device = img.device
 
-    # Define filters with the same dtype as input and on the correct device
     f1 = torch.tensor([[[[0, 0.5],
                          [0.5, 0]]]], dtype=img.dtype, device=device).expand(c, -1, -1, -1)
     f2 = torch.tensor([[[[0.5, 0],
                          [0, 0.5]]]], dtype=img.dtype, device=device).expand(c, -1, -1, -1)
 
-    # Stack filters along the output channel dimension and perform convolution in one call
-    kernel = torch.cat([f1, f2], dim=0)  # shape (2*c, 1, 2, 2)
+    kernel = torch.cat([f1, f2], dim=0)  # shape: (2*c, 1, 2, 2)
     conv_out = F.conv2d(img, kernel, stride=2, groups=c)
+
     output1, output2 = conv_out.chunk(2, dim=1)
     return output1, output2
+
 
 
 def ELS(img):
@@ -164,7 +170,15 @@ def ELS(img):
         AssertionError: If H or W are not even.
     """
     B, C, H, W = img.shape
-    assert (H % 2 == 0) and (W % 2 == 0), "Height and Width must be even for 2x2 blocks."
+    #assert (H % 2 == 0) and (W % 2 == 0), "Height and Width must be even for 2x2 blocks."
+
+    # Pad to even if needed
+    pad_h = 1 if H % 2 != 0 else 0
+    pad_w = 1 if W % 2 != 0 else 0
+    if pad_h or pad_w:
+        img = F.pad(img, (0, pad_w, 0, pad_h), mode='reflect')
+        B, C, H, W = img.shape  # update shape
+
 
     # Unfold the image into blocks of size 2x2 and reshape
     blocks = img.unfold(2, 2, 2).unfold(3, 2, 2).permute(0, 2, 3, 1, 4, 5)
@@ -477,11 +491,11 @@ class SigmaPredictor(nn.Module):
         B, N, D = q.shape
         scores = torch.bmm(q, k.transpose(1, 2)) * self.attention_scale
 
-        # Add relative positional bias (assume square patch layout)
-        grid_size = int(math.sqrt(N))
-        assert grid_size * grid_size == N, "Number of patches must be a perfect square"
-        rel_pos = self.get_2d_relative_positional_bias(grid_size, D, device=q.device)
-        scores = scores + rel_pos  # [B, N, N]
+        # # Add relative positional bias (assume square patch layout)
+        # grid_size = int(math.sqrt(N))
+        # assert grid_size * grid_size == N, "Number of patches must be a perfect square"
+        # rel_pos = self.get_2d_relative_positional_bias(grid_size, D, device=q.device)
+        # scores = scores + rel_pos  # [B, N, N]
 
         attn_weights = F.softmax(scores, dim=-1)
         return torch.bmm(attn_weights, v)
@@ -507,14 +521,21 @@ class SigmaPredictor(nn.Module):
         n_patches = patches.size(1)
         device = patches.device
 
-        if self.pos_embed is None or self.pos_embed.shape[1] != n_patches:
-            # Create positional embedding dynamically
-            self.pos_embed = nn.Parameter(torch.randn(1, n_patches, self.hidden_dim, device=device))
+        # if self.pos_embed is None or self.pos_embed.shape[1] != n_patches:
+        #     # Create positional embedding dynamically
+        #     self.pos_embed = nn.Parameter(torch.randn(1, n_patches, self.hidden_dim, device=device))
+                # # Add to queries and keys
+        # patches = patches + self.pos_embed  # [B, N, patch_dim]
 
-
-
-        # Add to queries and keys
-        patches = patches + self.pos_embed  # [B, N, patch_dim]
+        # Create or resize learnable positional embedding to match current number of patches
+        if self.pos_embed is None or self.pos_embed.shape[1] < n_patches:
+            # Create a large-enough learnable embedding
+            self.pos_embed = nn.Parameter(
+                torch.randn(1, n_patches, self.hidden_dim, device=patches.device)
+            )
+        # Slice to match the current number of patches
+        pos_embed = self.pos_embed[:, :n_patches, :].to(patches.device)
+        patches = patches + pos_embed  # [B, N, D]
 
                 
         # Extract non-overlapping patches
@@ -948,6 +969,12 @@ def save_image(image_np, filename, in_channels):
 ###############################################################################
 #                                   Main                                      #
 ###############################################################################
+def validate_image_shape(image, patch_size=16):
+    H, W = image.shape
+    if H % patch_size != 0 or W % patch_size != 0:
+        raise ValueError(f"Shape {H}x{W} not divisible by {patch_size}")
+    else:
+        print(f"Image shape {H}x{W} is valid ✔️")
 
 def main():
     """
@@ -969,6 +996,10 @@ def main():
 
     # Load Data
     image, noisy_image, in_channels = load_data()
+
+     # ✅ Validate shape before anything else
+    validate_image_shape(noisy_image, patch_size=16)
+    # Continue as usual
     noisy = prepare_image(noisy_image, device)
 
     # Initialize model and training utilities
