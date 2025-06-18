@@ -253,39 +253,61 @@ def prepare_for_display(img):
 #                             Plotting Functions                              #
 ###############################################################################
 
-def plot_results(original, noisy, denoised, metrics, save_path=None):
-    """
-    Plot original, noisy, and denoised images side by side with PSNR and SSIM annotations.
+#def plot_results(original, noisy, denoised, metrics, save_path=None):
+    # """
+    # Plot original, noisy, and denoised images side by side with PSNR and SSIM annotations.
 
-    Args:
-        original (np.ndarray): The clean/original image in [0,1].
-        noisy (np.ndarray): The noisy image in [0,1].
-        denoised (np.ndarray): The denoised image in [0,1].
-        metrics (dict): A dictionary with 'psnr_noisy', 'psnr_denoised',
-            'ssim_noisy', and 'ssim_denoised'.
-        save_path (str, optional): If provided, the plot is saved in this directory
-            under a predefined filename.
-    """
-    fig, axes = plt.subplots(1, 3, figsize=(15, 5))
-    original_disp = prepare_for_display(original)
+    # Args:
+    #     original (np.ndarray): The clean/original image in [0,1].
+    #     noisy (np.ndarray): The noisy image in [0,1].
+    #     denoised (np.ndarray): The denoised image in [0,1].
+    #     metrics (dict): A dictionary with 'psnr_noisy', 'psnr_denoised',
+    #         'ssim_noisy', and 'ssim_denoised'.
+    #     save_path (str, optional): If provided, the plot is saved in this directory
+    #         under a predefined filename.
+    # """
+    # fig, axes = plt.subplots(1, 3, figsize=(15, 5))
+    # original_disp = prepare_for_display(original)
+    # noisy_disp = prepare_for_display(noisy)
+    # denoised_disp = prepare_for_display(denoised)
+    # cmap = 'gray' if original_disp.ndim == 2 else None
+
+    # axes[0].imshow(original_disp, cmap=cmap)
+    # axes[0].set_title("Original")
+    # axes[0].axis('off')
+
+    # axes[1].imshow(noisy_disp, cmap=cmap)
+    # axes[1].set_title("Noisy\nPSNR: {:.2f} dB\nSSIM: {:.4f}".format(
+    #     metrics['psnr_noisy'], metrics['ssim_noisy']))
+    # axes[1].axis('off')
+
+    # axes[2].imshow(denoised_disp, cmap=cmap)
+    # axes[2].set_title("Denoised\nPSNR: {:.2f} dB\nSSIM: {:.4f}".format(
+    #     metrics['psnr_denoised'], metrics['ssim_denoised']))
+    # axes[2].axis('off')
+
+    # plt.tight_layout()
+    # if save_path:
+    #     plt.savefig(
+    #         os.path.join(save_path, 'results_with_metrics_pixel.png'),
+    #         bbox_inches='tight',
+    #         pad_inches=0,
+    #         dpi=300
+    #     )
+    # plt.show()
+
+def plot_results(noisy, denoised, metrics, save_path=None):
+    fig, axes = plt.subplots(1, 2, figsize=(10, 5))
     noisy_disp = prepare_for_display(noisy)
     denoised_disp = prepare_for_display(denoised)
-    cmap = 'gray' if original_disp.ndim == 2 else None
+    cmap = 'gray' if noisy_disp.ndim == 2 else None
 
-    axes[0].imshow(original_disp, cmap=cmap)
-    axes[0].set_title("Original")
-    axes[0].axis('off')
+    axes[0].imshow(noisy_disp, cmap=cmap)
+    axes[0].set_title("Noisy")
 
-    axes[1].imshow(noisy_disp, cmap=cmap)
-    axes[1].set_title("Noisy\nPSNR: {:.2f} dB\nSSIM: {:.4f}".format(
-        metrics['psnr_noisy'], metrics['ssim_noisy']))
-    axes[1].axis('off')
-
-    axes[2].imshow(denoised_disp, cmap=cmap)
-    axes[2].set_title("Denoised\nPSNR: {:.2f} dB\nSSIM: {:.4f}".format(
-        metrics['psnr_denoised'], metrics['ssim_denoised']))
-    axes[2].axis('off')
-
+    axes[1].imshow(denoised_disp, cmap=cmap)
+    axes[1].set_title("Denoised\nPSNR: {:.2f} dB\nSSIM: {:.4f}".format(
+        metrics['psnr_noisy_vs_denoised'], metrics['ssim_noisy_vs_denoised']))
     plt.tight_layout()
     if save_path:
         plt.savefig(
@@ -295,6 +317,7 @@ def plot_results(original, noisy, denoised, metrics, save_path=None):
             dpi=300
         )
     plt.show()
+
 
 
 def plot_sigmas(sigmas_list, save_path=None):
@@ -904,7 +927,7 @@ def train_model(model, noisy, loss_function, optimizer, scheduler, epochs=500):
 #                         Metrics and Data Loading                            #
 ###############################################################################
 
-def compute_metrics(image, noisy_image, denoised_image, in_channels):
+#def compute_metrics(image, noisy_image, denoised_image, in_channels):
     """
     Compute PSNR and SSIM metrics for noisy and denoised images relative to the reference.
 
@@ -917,23 +940,34 @@ def compute_metrics(image, noisy_image, denoised_image, in_channels):
     Returns:
         dict: Contains 'psnr_noisy', 'psnr_denoised', 'ssim_noisy', and 'ssim_denoised'.
     """
+    #metrics = {}
+    #metrics['psnr_noisy'] = compare_psnr(image, noisy_image, data_range=1)
+    #metrics['psnr_denoised'] = compare_psnr(image, denoised_image, data_range=1)
+
+    # if in_channels == 1:
+    #     ssim_noisy, _ = compare_ssim(image, noisy_image, data_range=1, full=True)
+    #     ssim_denoised, _ = compare_ssim(image, denoised_image, data_range=1, full=True)
+    # else:
+    #     ssim_noisy, _ = compare_ssim(image, noisy_image, data_range=1, channel_axis=2, full=True)
+    #     ssim_denoised, _ = compare_ssim(
+    #         image, denoised_image, data_range=1, channel_axis=2, full=True
+    #     )
+    # metrics['ssim_noisy'] = ssim_noisy
+    # metrics['ssim_denoised'] = ssim_denoised
+
+    # return metrics
+
+def compute_metrics(noisy_image, denoised_image, in_channels):
     metrics = {}
-    metrics['psnr_noisy'] = compare_psnr(image, noisy_image, data_range=1)
-    metrics['psnr_denoised'] = compare_psnr(image, denoised_image, data_range=1)
+    metrics['psnr_noisy_vs_denoised'] = compare_psnr(noisy_image, denoised_image, data_range=1)
 
     if in_channels == 1:
-        ssim_noisy, _ = compare_ssim(image, noisy_image, data_range=1, full=True)
-        ssim_denoised, _ = compare_ssim(image, denoised_image, data_range=1, full=True)
+        ssim_val, _ = compare_ssim(noisy_image, denoised_image, data_range=1, full=True)
     else:
-        ssim_noisy, _ = compare_ssim(image, noisy_image, data_range=1, channel_axis=2, full=True)
-        ssim_denoised, _ = compare_ssim(
-            image, denoised_image, data_range=1, channel_axis=2, full=True
-        )
-    metrics['ssim_noisy'] = ssim_noisy
-    metrics['ssim_denoised'] = ssim_denoised
+        ssim_val, _ = compare_ssim(noisy_image, denoised_image, data_range=1, channel_axis=2, full=True)
 
+    metrics['ssim_noisy_vs_denoised'] = ssim_val
     return metrics
-
 
 def load_data():
     """
@@ -942,10 +976,11 @@ def load_data():
     Returns:
         tuple: (clean_image, noisy_image, in_channels)
     """
-    image = np.load('clean.npy')
-    noisy_image = np.load('noisy.npy')
+    #image = np.load('clean.npy')
+    noisy_image = np.load('windowed_array_padded.npy')
     in_channels = 1  # e.g., 1 for grayscale
-    return image, noisy_image, in_channels
+    #return image, noisy_image, in_channels
+    return noisy_image, in_channels
 
 
 def save_image(image_np, filename, in_channels):
@@ -995,7 +1030,8 @@ def main():
     logger.info("Starting denoising pipeline...")
 
     # Load Data
-    image, noisy_image, in_channels = load_data()
+    #image, noisy_image, in_channels = load_data()
+    noisy_image, in_channels = load_data()
 
      # ✅ Validate shape before anything else
     validate_image_shape(noisy_image, patch_size=16)
@@ -1025,17 +1061,23 @@ def main():
         denoised, sigmas_list = model(noisy, return_sigmas=True)
         denoised_image = restore_image(denoised)
 
+    # ✅ Crop to match noisy image shape
+    H, W = noisy_image.shape
+    denoised_image = denoised_image[:H, :W]
+    
     logger.info(f"Inference time: {inference_time:.4f} seconds")
 
     # Compute and print metrics
-    metrics = compute_metrics(image, noisy_image, denoised_image, in_channels)
+    #metrics = compute_metrics(image, noisy_image, denoised_image, in_channels)
+    metrics = compute_metrics(noisy_image, denoised_image, in_channels)
     for key, value in metrics.items():
         logger.info(f"{key}: {value:.4f}")
 
     # Example of saving a final denoised image (uncomment if needed):
     # save_image(denoised_image, "denoised_image_result.png", in_channels)
 
-    plot_results(image, noisy_image, denoised_image, metrics, save_path='.')
+    #plot_results(image, noisy_image, denoised_image, metrics, save_path='.')
+    plot_results(noisy_image, denoised_image, metrics, save_path='.')
     plot_sigmas(sigmas_list, save_path='.')
 
     # Optionally, save sigma maps for each stage:
